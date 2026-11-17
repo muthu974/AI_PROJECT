@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   ChevronRight,
@@ -13,27 +13,66 @@ import {
   Fingerprint,
   Heart,
 } from 'lucide-react';
-import { symptomCategories, allSymptoms } from '../data/symptoms';
+import { fetchSymptoms } from '../services/api';
 import { analyzeSymptoms } from '../services/predictionService';
 import ResultsView from '../components/ResultsView';
 
 const iconMap = {
-  Thermometer,
-  Wind,
-  Brain,
-  Apple,
-  Bone,
-  Fingerprint,
-  Heart,
+  General: Thermometer,
+  Respiratory: Wind,
+  Neurological: Brain,
+  Digestive: Apple,
+  Musculoskeletal: Bone,
+  Skin: Fingerprint,
+  Cardiovascular: Heart,
+  'Mental Health': Brain,
+  'Urinary & Reproductive': Heart,
 };
 
 export default function SymptomChecker() {
+  const [allSymptoms, setAllSymptoms] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [selected, setSelected] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState(null);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchSymptoms()
+      .then((symptoms) => {
+        if (active) setAllSymptoms(symptoms);
+      })
+      .catch((err) => {
+        if (active) {
+          setError(err.message || 'Could not load the dataset symptom catalog.');
+        }
+      })
+      .finally(() => {
+        if (active) setCatalogLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const symptomCategories = useMemo(() => {
+    const categories = new Map();
+    allSymptoms.forEach((symptom) => {
+      if (!categories.has(symptom.category)) {
+        categories.set(symptom.category, {
+          name: symptom.category,
+          icon: symptom.category,
+          symptoms: [],
+        });
+      }
+      categories.get(symptom.category).symptoms.push(symptom);
+    });
+    return [...categories.values()];
+  }, [allSymptoms]);
 
   const filteredSymptoms = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -44,7 +83,7 @@ export default function SymptomChecker() {
         s.id.toLowerCase().includes(q) ||
         s.category.toLowerCase().includes(q)
     );
-  }, [searchQuery]);
+  }, [searchQuery, allSymptoms]);
 
   function toggleSymptom(id) {
     setSelected((prev) =>
@@ -84,6 +123,7 @@ export default function SymptomChecker() {
       <ResultsView
         results={results}
         selectedSymptoms={selected}
+        symptomCatalog={allSymptoms}
         onReset={handleReset}
       />
     );
@@ -98,6 +138,18 @@ export default function SymptomChecker() {
           Select all symptoms you are experiencing, then analyze.
         </p>
       </div>
+
+      {catalogLoading && (
+        <p className="mb-6 text-center text-sm text-navy-500">
+          Loading symptoms from the trained dataset…
+        </p>
+      )}
+      {error && selected.length === 0 && (
+        <div className="mb-6 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative mb-6 max-w-lg mx-auto">
@@ -147,7 +199,7 @@ export default function SymptomChecker() {
       )}
 
       {/* Categories */}
-      {!searchQuery.trim() && (
+      {!searchQuery.trim() && !catalogLoading && (
         <div className="space-y-3 mb-8">
           {symptomCategories.map((cat) => {
             const CatIcon = iconMap[cat.icon] || Thermometer;

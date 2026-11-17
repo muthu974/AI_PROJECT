@@ -6,12 +6,23 @@ import {
   ShieldAlert,
   TrendingUp,
 } from 'lucide-react';
-import { allSymptoms } from '../data/symptoms';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { formatScore, getScoreColor, getScoreTextColor } from '../utils/helpers';
 
-export default function ResultsView({ results, selectedSymptoms, onReset }) {
+export default function ResultsView({ results, selectedSymptoms, symptomCatalog, onReset }) {
   const { predictions = [], guidance = [], mode } = results;
-  const isDemo = mode === 'demo';
+  const chartData = predictions.map((prediction) => ({
+    condition: prediction.condition,
+    score: Math.round(prediction.score * 100),
+  }));
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
@@ -24,14 +35,13 @@ export default function ResultsView({ results, selectedSymptoms, onReset }) {
         New Assessment
       </button>
 
-      {/* Demo badge */}
-      {isDemo && (
+      {/* Model limitations */}
+      {mode !== 'clinical' && (
         <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-xl px-5 py-3.5 mb-6">
           <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-orange-700">
-            <strong>Demo Mode:</strong> The ML backend is unavailable. These are
-            illustrative results for demonstration purposes only — they are NOT
-            real medical predictions.
+            <strong>Educational ML output:</strong>{' '}
+            {results.model_notice || 'These model scores are not medical diagnoses or calibrated diagnostic probabilities.'}
           </div>
         </div>
       )}
@@ -43,7 +53,7 @@ export default function ResultsView({ results, selectedSymptoms, onReset }) {
         </h3>
         <div className="flex flex-wrap gap-1.5">
           {selectedSymptoms.map((id) => {
-            const s = allSymptoms.find((sym) => sym.id === id);
+            const s = symptomCatalog.find((sym) => sym.id === id);
             return (
               <span
                 key={id}
@@ -61,6 +71,26 @@ export default function ResultsView({ results, selectedSymptoms, onReset }) {
         <TrendingUp className="w-6 h-6 text-teal-600" />
         Results
       </h2>
+
+      {chartData.length > 0 && (
+        <section className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5 mb-6">
+          <h3 className="font-semibold text-navy-800 mb-4">Pattern-score comparison</h3>
+          <div className="h-72" role="img" aria-label="Bar chart comparing model scores for pattern labels">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 18, left: 12, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#d9e2ec" />
+                <XAxis type="number" domain={[0, 100]} unit="%" />
+                <YAxis type="category" dataKey="condition" width={150} tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(value) => [`${value}%`, 'Model score']} />
+                <Bar dataKey="score" fill="#199473" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-2 text-xs text-navy-400">
+            Scores are model outputs from synthetic training examples, not probabilities or diagnoses.
+          </p>
+        </section>
+      )}
 
       <div className="space-y-4 stagger-children mb-8">
         {predictions.map((pred, idx) => (

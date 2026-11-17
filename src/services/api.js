@@ -1,7 +1,6 @@
 /**
  * API service module for HealthAI.
  * Handles all communication with the backend REST API.
- * Falls back gracefully when the backend is unavailable.
  */
 import axios from 'axios';
 
@@ -39,6 +38,11 @@ export async function submitPrediction(symptoms) {
   return response.data;
 }
 
+export async function fetchSymptoms() {
+  const response = await apiClient.get('/symptoms');
+  return response.data;
+}
+
 /**
  * Fetch assessment history from the backend.
  * @returns {Promise<object[]>} Array of assessment records
@@ -47,6 +51,14 @@ export async function submitPrediction(symptoms) {
 export async function fetchHistory() {
   const response = await apiClient.get('/predictions/history');
   return response.data;
+}
+
+export async function deleteHistoryEntry(id) {
+  await apiClient.delete(`/predictions/history/${encodeURIComponent(id)}`);
+}
+
+export async function clearHistory() {
+  await apiClient.delete('/predictions/history');
 }
 
 export default apiClient;

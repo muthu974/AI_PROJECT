@@ -12,8 +12,8 @@ import {
 const features = [
   {
     icon: Brain,
-    title: 'AI-Powered Analysis',
-    desc: 'Advanced machine learning models analyze your symptoms for potential conditions.',
+    title: 'Dataset-Trained ML',
+    desc: 'A classifier learns patterns from the supplied augmented symptoms dataset; its output is not a diagnosis.',
     color: 'from-teal-400 to-teal-600',
   },
   {
@@ -54,9 +54,8 @@ export default function HomePage() {
           </h1>
 
           <p className="mt-6 text-lg sm:text-xl text-navy-500 max-w-2xl mx-auto leading-relaxed">
-            Describe your symptoms and receive AI-powered preliminary health
-            insights. Built as an academic prototype to explore ML-driven
-            healthcare solutions.
+            Explore a machine-learning symptom-pattern demo trained on the
+            supplied dataset. Scores are not diagnoses or medical advice.
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -113,8 +112,8 @@ export default function HomePage() {
           <div className="grid sm:grid-cols-3 gap-8 stagger-children">
             {[
               { step: '1', title: 'Select Symptoms', desc: 'Choose from categorized symptoms or search by name.' },
-              { step: '2', title: 'AI Analysis', desc: 'Our ML model evaluates patterns across your selected symptoms.' },
-              { step: '3', title: 'Get Insights', desc: 'View potential conditions, confidence scores, and health guidance.' },
+              { step: '2', title: 'ML Patterning', desc: 'A classifier compares your selected symptoms to patterns learned from the supplied dataset.' },
+              { step: '3', title: 'View Scores', desc: 'Review model scores as educational output, not diagnostic probabilities.' },
             ].map((s) => (
               <div key={s.step} className="flex flex-col items-center">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-xl font-bold mb-4 shadow-lg">

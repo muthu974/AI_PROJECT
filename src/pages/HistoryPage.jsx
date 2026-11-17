@@ -1,17 +1,43 @@
 import { Clock, Trash2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAssessmentHistory } from '../hooks/useAssessmentHistory';
-import { demoHistoryEntries } from '../data/demoData';
-import { allSymptoms } from '../data/symptoms';
+import { fetchSymptoms } from '../services/api';
 import { formatDate, formatScore, getScoreTextColor } from '../utils/helpers';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 export default function HistoryPage() {
-  const { history, clearHistory, deleteEntry } = useAssessmentHistory();
+  const { history, loading, error, clearHistory, deleteEntry } = useAssessmentHistory();
   const [expandedId, setExpandedId] = useState(null);
+  const [symptomCatalog, setSymptomCatalog] = useState([]);
+  const [symptomError, setSymptomError] = useState('');
 
-  // Merge real history with demo entries if history is empty
-  const displayHistory = history.length > 0 ? history : demoHistoryEntries;
-  const isDemo = history.length === 0;
+  useEffect(() => {
+    let active = true;
+    fetchSymptoms()
+      .then((symptoms) => {
+        if (active) setSymptomCatalog(symptoms);
+      })
+      .catch((err) => {
+        if (active) setSymptomError(err.message || 'Could not load symptom names.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const chartData = [...history]
+    .reverse()
+    .map((entry) => ({
+      date: new Date(entry.date).toLocaleDateString(),
+      score: Math.round(entry.topScore * 100),
+    }));
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
@@ -31,29 +57,48 @@ export default function HistoryPage() {
         )}
       </div>
 
-      {isDemo && (
+      {(error || symptomError) && (
         <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-xl px-5 py-3.5 mb-6">
           <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-orange-700">
-            No assessments yet. Showing demo entries for illustration. Complete
-            an assessment to see your real history here.
+            {error || symptomError}
           </p>
         </div>
       )}
 
-      {displayHistory.length === 0 ? (
+      {loading ? (
+        <p className="py-12 text-center text-sm text-navy-500">Loading assessment history…</p>
+      ) : history.length === 0 ? (
         <div className="text-center py-20">
           <Clock className="w-12 h-12 text-navy-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-navy-700 mb-1">
             No History Yet
           </h3>
           <p className="text-navy-400 text-sm">
-            Your completed assessments will appear here.
+            Complete an assessment while the backend is running to save it here.
           </p>
         </div>
       ) : (
-        <div className="space-y-3 stagger-children">
-          {displayHistory.map((entry) => {
+        <>
+          <section className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5 mb-6">
+            <h2 className="font-semibold text-navy-800 mb-4">Top pattern score over time</h2>
+            <div className="h-64" role="img" aria-label="Line chart of top model scores over time">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#d9e2ec" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value) => [`${value}%`, 'Model score']} />
+                  <Line type="monotone" dataKey="score" stroke="#199473" strokeWidth={3} dot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="mt-2 text-xs text-navy-400">
+              Scores are outputs from the educational model, not diagnostic probabilities.
+            </p>
+          </section>
+          <div className="space-y-3 stagger-children">
+          {history.map((entry) => {
             const isExpanded = expandedId === entry.id;
             return (
               <div
@@ -74,9 +119,9 @@ export default function HistoryPage() {
                       >
                         {formatScore(entry.topScore)}
                       </span>
-                      {entry.mode === 'demo' && (
+                      {entry.mode && (
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">
-                          Demo
+                          Educational ML
                         </span>
                       )}
                     </div>
@@ -99,7 +144,7 @@ export default function HistoryPage() {
                       </h4>
                       <div className="flex flex-wrap gap-1.5">
                         {entry.symptoms.map((id) => {
-                          const s = allSymptoms.find((sym) => sym.id === id);
+                          const s = symptomCatalog.find((sym) => sym.id === id);
                           return (
                             <span
                               key={id}
@@ -145,21 +190,20 @@ export default function HistoryPage() {
                       </div>
                     )}
 
-                    {!isDemo && (
-                      <button
-                        onClick={() => deleteEntry(entry.id)}
-                        className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors mt-1"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                        Delete
-                      </button>
-                    )}
+                    <button
+                      onClick={() => deleteEntry(entry.id)}
+                      className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors mt-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Delete
+                    </button>
                   </div>
                 )}
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
